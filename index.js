@@ -35,7 +35,9 @@ const {
     getOpenTicket,
     deleteOpenTicket,
     getAllOpenTickets,
-    getUserDataCount
+    getUserDataCount,
+    saveTicketSummary,
+    getTicketSummaries
 } = require('./utils');
 
 const client = new Client({
@@ -124,6 +126,14 @@ client.once('ready', async () => {
             description: '제출된 정보 통계를 확인합니다.',
             default_member_permissions: PermissionFlagsBits.Administrator.toString()
         },
+        {
+            name: '자동저장',
+            description: '현재 채널에 상담 내용을 저장합니다.'
+        },
+        {
+            name: '저장정보',
+            description: '현재 채널에 저장된 상담 내용을 조회합니다.'
+        }
     ];
     // 전역 명령어와 길드별로 남아 있는 이전 명령어를 모두 현재 목록으로 동기화합니다.
     // 길드 명령어를 별도로 등록했던 경우에도 삭제된 명령어가 계속 보이지 않도록 합니다.
@@ -337,6 +347,60 @@ client.on('interactionCreate', async interaction => {
                 await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
+            if (commandName === '자동저장') {
+                const modal = new ModalBuilder()
+                    .setCustomId('save_ticket_summary_modal')
+                    .setTitle('상담 내용 저장');
+
+                const titleInput = new TextInputBuilder()
+                    .setCustomId('summary_title')
+                    .setLabel('상담 제목')
+                    .setStyle(TextInputStyle.Short)
+                    .setMaxLength(100)
+                    .setRequired(true);
+
+                const detailsInput = new TextInputBuilder()
+                    .setCustomId('summary_details')
+                    .setLabel('상담 세부사항')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setMaxLength(4000)
+                    .setRequired(true);
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(titleInput),
+                    new ActionRowBuilder().addComponents(detailsInput)
+                );
+                await interaction.showModal(modal);
+            }
+
+            if (commandName === '저장정보') {
+                const summaries = await getTicketSummaries(guildId, interaction.channelId);
+                if (summaries.length === 0) {
+                    return interaction.reply({ content: '현재 채널에 저장된 상담 내용이 없습니다.', ephemeral: true });
+                }
+
+                const lines = summaries.map((summary, index) => {
+                    const date = summary.createdAt || '날짜 없음';
+                    return `**${index + 1}. ${summary.title}**\n작성자: <@${summary.userId}> · ${date}\n${summary.details}`;
+                });
+                const chunks = [];
+                let current = '';
+                for (const line of lines) {
+                    if ((current + '\n\n' + line).length > 1800 && current) {
+                        chunks.push(current);
+                        current = line;
+                    } else {
+                        current += current ? `\n\n${line}` : line;
+                    }
+                }
+                if (current) chunks.push(current);
+
+                await interaction.reply({ content: `📋 현재 채널 상담 기록 (${summaries.length}건)\n\n${chunks[0]}` });
+                for (const chunk of chunks.slice(1)) {
+                    await interaction.followUp({ content: chunk });
+                }
+            }
+
         }
 
         if (interaction.isChannelSelectMenu() && interaction.customId === 'select_info_channel') {
@@ -418,6 +482,14 @@ client.on('interactionCreate', async interaction => {
         }
 
         if (interaction.isModalSubmit()) {
+            if (interaction.customId === 'save_ticket_summary_modal') {
+                const title = interaction.fields.getTextInputValue('summary_title');
+                const details = interaction.fields.getTextInputValue('summary_details');
+                await saveTicketSummary(guildId, interaction.channelId, interaction.user.id, title, details);
+                await interaction.reply({ content: `✅ 상담 내용이 저장되었습니다.\n**제목:** ${title}`, ephemeral: true });
+                logger.info(`[${guildId}] 상담 내용 저장됨 (채널 ${interaction.channelId})`);
+            }
+
             if (interaction.customId === 'setup_title_desc_modal') {
                 try {
                     const setupData = interaction.client.setupData[guildId];

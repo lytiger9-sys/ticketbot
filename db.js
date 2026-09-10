@@ -64,6 +64,19 @@ function initializeDatabase() {
                 UNIQUE(guildId, userId)
             )
         `);
+
+        // 채널별 상담 기록 테이블
+        db.run(`
+            CREATE TABLE IF NOT EXISTS ticket_summaries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guildId TEXT NOT NULL,
+                channelId TEXT NOT NULL,
+                userId TEXT NOT NULL,
+                title TEXT NOT NULL,
+                details TEXT NOT NULL,
+                createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
     });
 }
 

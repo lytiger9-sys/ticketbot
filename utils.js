@@ -248,6 +248,38 @@ function getUserDataCount(guildId) {
     });
 }
 
+// 상담 내용 저장
+function saveTicketSummary(guildId, channelId, userId, title, details) {
+    return new Promise((resolve, reject) => {
+        db.run(
+            `INSERT INTO ticket_summaries (guildId, channelId, userId, title, details)
+             VALUES (?, ?, ?, ?, ?)`,
+            [guildId, channelId, userId, title, details],
+            function(err) {
+                if (err) reject(err);
+                else resolve(this.lastID);
+            }
+        );
+    });
+}
+
+// 현재 채널의 상담 내용 조회
+function getTicketSummaries(guildId, channelId) {
+    return new Promise((resolve, reject) => {
+        db.all(
+            `SELECT id, userId, title, details, createdAt
+             FROM ticket_summaries
+             WHERE guildId = ? AND channelId = ?
+             ORDER BY id DESC`,
+            [guildId, channelId],
+            (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            }
+        );
+    });
+}
+
 module.exports = {
     saveSetting,
     getSetting,
@@ -264,5 +296,7 @@ module.exports = {
     getOpenTicket,
     deleteOpenTicket,
     getAllOpenTickets,
-    getUserDataCount
+    getUserDataCount,
+    saveTicketSummary,
+    getTicketSummaries
 };
