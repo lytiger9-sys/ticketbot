@@ -1,0 +1,5 @@
+.env
+ticketbot.pem
+/logs
+/backups
+bot.db
