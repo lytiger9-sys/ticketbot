@@ -2,3 +2,4 @@
 ticketbot.pem
 /logs
 bot.db
+node_modules/
