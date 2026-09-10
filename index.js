@@ -135,13 +135,13 @@ client.once('ready', async () => {
             description: '현재 채널에 저장된 상담 내용을 조회합니다.'
         }
     ];
-    // 전역 명령어와 길드별로 남아 있는 이전 명령어를 모두 현재 목록으로 동기화합니다.
-    // 길드 명령어를 별도로 등록했던 경우에도 삭제된 명령어가 계속 보이지 않도록 합니다.
+    // 명령어는 전역으로만 등록합니다. 전역과 길드에 동시에 등록하면
+    // Discord 클라이언트에서 같은 명령어가 중복으로 표시될 수 있습니다.
     await client.application.commands.set(commands);
     await Promise.all(
-        client.guilds.cache.map(guild => guild.commands.set(commands))
+        client.guilds.cache.map(guild => guild.commands.set([]))
     );
-    logger.info(`Slash commands synchronized for ${client.guilds.cache.size} guild(s)`);
+    logger.info(`Global slash commands synchronized; cleared guild commands for ${client.guilds.cache.size} guild(s)`);
 });
 
 client.on('channelDelete', async (channel) => {
