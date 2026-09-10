@@ -1,3 +1,5 @@
+const http = require('http');
+
 const { 
     Client, 
     GatewayIntentBits, 
@@ -17,7 +19,6 @@ const {
 require('dotenv').config();
 const db = require('./db');
 const logger = require('./logger');
-const { createBackup, getBackups, restoreBackup } = require('./backup');
 const {
     saveSetting,
     getSetting,
@@ -123,11 +124,6 @@ client.once('ready', async () => {
             description: '제출된 정보 통계를 확인합니다.',
             default_member_permissions: PermissionFlagsBits.Administrator.toString()
         },
-        {
-            name: '백업',
-            description: '데이터베이스를 백업합니다.',
-            default_member_permissions: PermissionFlagsBits.Administrator.toString()
-        }
     ];
     await client.application.commands.set(commands);
 });
@@ -335,27 +331,6 @@ client.on('interactionCreate', async interaction => {
                 await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
-            if (commandName === '백업') {
-                try {
-                    await interaction.deferReply({ ephemeral: true });
-                    const backupFile = await createBackup();
-                    const backups = await getBackups();
-                    
-                    const embed = new EmbedBuilder()
-                        .setTitle('✅ 백업 완료')
-                        .setColor(0x00FF00)
-                        .addFields(
-                            { name: '백업 파일', value: backupFile.split('/').pop(), inline: false },
-                            { name: '총 백업 수', value: `${backups.length}개`, inline: true }
-                        );
-
-                    await interaction.editReply({ embeds: [embed] });
-                    logger.info(`[${guildId}] 데이터베이스 백업 완료`);
-                } catch (e) {
-                    logger.error(`[${guildId}] 백업 실패`, e);
-                    await interaction.editReply({ content: '백업 중 오류가 발생했습니다.' });
-                }
-            }
         }
 
         if (interaction.isChannelSelectMenu() && interaction.customId === 'select_info_channel') {
@@ -738,5 +713,17 @@ if (infoEmbed) {
         }
     }
 });
+
+const port = Number(process.env.PORT) || 3000;
+const healthServer = http.createServer((req, res) => {
+    if (req.url === '/health' || req.url === '/') {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ status: 'ok', service: 'ticketbot', discord: client.isReady() ? 'connected' : 'connecting' }));
+        return;
+    }
+    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'not found' }));
+});
+healthServer.listen(port, '0.0.0.0', () => logger.info(`Health server listening on port ${port}`));
 
 client.login(process.env.TOKEN);
