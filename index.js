@@ -125,7 +125,13 @@ client.once('ready', async () => {
             default_member_permissions: PermissionFlagsBits.Administrator.toString()
         },
     ];
+    // 전역 명령어와 길드별로 남아 있는 이전 명령어를 모두 현재 목록으로 동기화합니다.
+    // 길드 명령어를 별도로 등록했던 경우에도 삭제된 명령어가 계속 보이지 않도록 합니다.
     await client.application.commands.set(commands);
+    await Promise.all(
+        client.guilds.cache.map(guild => guild.commands.set(commands))
+    );
+    logger.info(`Slash commands synchronized for ${client.guilds.cache.size} guild(s)`);
 });
 
 client.on('channelDelete', async (channel) => {
